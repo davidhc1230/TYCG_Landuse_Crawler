@@ -2,7 +2,7 @@
 
 ## 📌 概述
 
-透過爬蟲功能查詢桃園市政府土地使用分區系統(https://landuse.tycg.gov.tw/sys/QueryProgress/QueryProgress.aspx)的地號資料。使用者可透過網頁輸入地號，系統將自動查詢至最新地號，並可下載查詢結果的 Excel 檔案。
+透過爬蟲功能查詢桃園市政府土地使用分區系統 (https://landuse.tycg.gov.tw/sys/QueryProgress/QueryProgress.aspx) 的地號資料。使用者可透過網頁輸入地號，系統將自動查詢至最新地號，並可下載查詢結果的 Excel 檔案。
 
 <br>
 
