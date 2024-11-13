@@ -1,0 +1,5 @@
+Flask==3.0.3
+Flask_SocketIO==5.4.1
+pandas==2.2.3
+python-socketio==5.11.4
+selenium==4.26.1

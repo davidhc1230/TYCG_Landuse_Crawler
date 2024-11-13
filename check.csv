@@ -1,0 +1,4 @@
+檔案名,引入函式庫整理,空行檢查,註解檢查,多餘代碼整併,資安檢查,版本檢查,輸出requirements.txt 或 Pipfile,輸出.gitignore
+app.py,👌,👌,👌,👌,👌,👌,-,-
+crawler.py,👌,👌,👌,👌,👌,👌,-,-
+index.html,👌,👌,,👌,👌,👌,-,-

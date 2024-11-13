@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桃園市政府土地使用分區系統爬蟲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            padding: 0 60px;
+        }
+        p {
+            font-size: 18px;
+        }
+        label {
+        font-size: 18px;
+        font-weight: bold;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -moz-appearance: textfield;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        #landuse-result {
+            position: relative;
+            white-space: pre-wrap;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        #start-button {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin-top: 20px;
+        }
+        #start-button:hover {
+            background-color: #0056b3;
+        }
+        #download-button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        #download-button:hover {
+            background-color: #0056b3;
+        }
+        #reset-button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin-top: 20px;
+        float: right;
+        }
+        #reset-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h1>桃園市政府土地使用分區系統爬蟲</h1>
+    <p>目標網址：<a href="https://landuse.tycg.gov.tw/sys/QueryProgress/QueryProgress.aspx" target="_blank">https://landuse.tycg.gov.tw/sys/QueryProgress/QueryProgress.aspx</a></p>
+    <p>目前查詢年份鎖定為民國113年。請輸入起始查詢地號，系統將自動查詢至最新地號。</p>
+    <p>範例輸入：</p>
+    <ul>
+        <li>例如：<strong>00001</strong> 或 <strong>38000</strong></li>
+        <li>可以包含前導零（如 <strong>00010</strong>）或沒有前導零（如 <strong>10</strong>）</li>
+    </ul>
+
+    <form id="scrape-form" onsubmit="return false;">
+        <label for="symbol_no">起始查詢地號：</label>
+        <input type="text" id="symbol_no" name="symbol_no" required pattern="^0*[1-9]\d*$">
+        <button id="start-button" onclick="startScraping()">開始查詢</button>
+    </form>
+
+    <div id="landuse-result"></div>
+    <button id="download-button" onclick="downloadExcel()">下載結果 (output.xlsx)</button>
+    <button id="reset-button" onclick="resetSearch()">重新查詢</button>
+    <script>
+        window.onload = function() {
+            resetSearch();
+        };
+
+        document.getElementById('symbol_no').addEventListener('input', function() {
+            let value = this.value;
+
+            // 只允許輸入數字且開頭允許有前導零
+            if (!/^\d*$/.test(value)) {
+                this.value = value.replace(/[^0-9]/g, ''); // 移除所有非數字字符
+            }
+        });
+
+        const socket = io();
+    
+        socket.on('scrape_update', appendMessage);
+        socket.on('scrape_complete', appendMessage);
+
+        function appendMessage(data) {
+            const newsResult = document.getElementById('landuse-result');
+            newsResult.innerHTML += data + '\n';
+        }
+    
+        function startScraping() {
+            const symbol_no = document.getElementById('symbol_no').value;
+            const newsResult = document.getElementById('landuse-result');
+            const downloadButton = document.getElementById('download-button');
+
+            newsResult.innerHTML = "開始查詢...\n";
+    
+            fetch('/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ symbol_no: symbol_no })
+            }).then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                    newsResult.innerHTML += "查詢中，請稍候...\n";
+                } else {
+                    newsResult.innerHTML += "查詢失敗。\n";
+                }
+            }).catch(error => {
+                newsResult.innerHTML += `錯誤：${error}\n`;
+            });
+        }
+    
+        function downloadExcel() {
+            fetch('/download', {
+                method: 'GET'
+            }).then(response => {
+                if (response.status === 200) {
+                    // 如果文件存在，觸發下載
+                    window.location.href = '/download';
+                } else {
+                    // 如果文件不存在，則顯示錯誤訊息
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: '資料檔案不存在！',
+                    });
+                }
+            }).catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: '發生錯誤',
+                    text: `錯誤：${error}`,
+                });
+            });
+        }
+
+        function resetSearch() {
+            const newsResult = document.getElementById('landuse-result');
+            newsResult.innerHTML = ""; // 清除顯示區域的內容
+            const downloadButton = document.getElementById('download-button');
+            
+            // 發送請求到後端來中止爬蟲程式
+            fetch('/stop', {
+                method: 'POST',
+            }).then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                    newsResult.innerHTML = "爬蟲已停止。\n";
+                } else {
+                    newsResult.innerHTML = `停止爬蟲失敗：${data.error}\n`;
+                }
+              }).catch(error => {
+                newsResult.innerHTML = `停止爬蟲錯誤：${error}\n`;
+              });
+
+            // 發送請求到後端來刪除 output.xlsx
+            fetch('/reset', {
+                method: 'POST',
+            }).then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                    newsResult.innerHTML = "已重置。\n";
+                } else {
+                    newsResult.innerHTML = "重置失敗。\n";
+                }
+            }).catch(error => {
+                newsResult.innerHTML = `重置錯誤：${error}\n`;
+            });
+        }
+    </script>
+</body>
+</html>
